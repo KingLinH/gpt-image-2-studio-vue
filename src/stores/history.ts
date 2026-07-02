@@ -2,9 +2,10 @@ import { defineStore } from "pinia";
 import { computed, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { groupHistoryRecordsForDisplay, generateId, type ImageRecord } from "@/core/history";
-import { readJson, writeJson, downloadImage, makeThumbnail } from "@/core/storage";
+import { readJson, writeJson, downloadImage, makeThumbnail, triggerBlobDownload } from "@/core/storage";
 import { saveImage, getImage, getThumb, deleteImage, clearImages } from "@/core/imageStore";
 import { slugifyPrompt } from "@/core/fileNames";
+import { computeStats, type HistoryStats } from "@/core/historyStats";
 import type { ParsedImage } from "@/core/api";
 
 const STORAGE_KEY = "gpt-image-2:history";
@@ -17,6 +18,9 @@ export const useHistoryStore = defineStore("history", () => {
   const records = ref<ImageRecord[]>([]);
   const displayItems = ref(groupHistoryRecordsForDisplay([]));
   const projectFilter = ref("");
+  const favoriteOnly = ref(false);
+  const compareIds = ref<string[]>([]);
+  const compareVisible = ref(false);
   // id -> 缩略图 data URL（从 IndexedDB 异步载入）
   const thumbnailById = reactive<Record<string, string>>({});
 
@@ -27,10 +31,15 @@ export const useHistoryStore = defineStore("history", () => {
     return Array.from(set);
   });
 
+  const stats = computed<HistoryStats>(() => computeStats(records.value));
+
   function filteredRecords(): ImageRecord[] {
     const f = (projectFilter.value ?? "").trim();
-    if (!f) return records.value;
-    return records.value.filter((r) => (r.project ?? "") === f);
+    return records.value.filter((r) => {
+      if (f && (r.project ?? "") !== f) return false;
+      if (favoriteOnly.value && !r.favorite) return false;
+      return true;
+    });
   }
 
   function refreshDisplay(): void {
@@ -151,13 +160,80 @@ export const useHistoryStore = defineStore("history", () => {
     }
   }
 
+  // ---- 收藏 ----
+  function toggleFavorite(id: string): void {
+    records.value = records.value.map((r) => (r.id === id ? { ...r, favorite: !r.favorite } : r));
+    persist();
+    refreshDisplay();
+  }
+
+  function setFavoriteOnly(value: boolean): void {
+    favoriteOnly.value = value;
+    refreshDisplay();
+  }
+
+  // ---- 并排对比 ----
+  const MAX_COMPARE = 6;
+  function toggleCompare(id: string): void {
+    if (compareIds.value.includes(id)) {
+      compareIds.value = compareIds.value.filter((x) => x !== id);
+    } else if (compareIds.value.length < MAX_COMPARE) {
+      compareIds.value = [...compareIds.value, id];
+    } else {
+      ElMessage.warning(`对比最多 ${MAX_COMPARE} 张。`);
+    }
+  }
+  function clearCompare(): void {
+    compareIds.value = [];
+  }
+
+  // ---- 导出 / 导入（备份恢复；仅元数据，不含原图）----
+  function exportJSON(onlyFavorites: boolean): void {
+    const data = onlyFavorites ? records.value.filter((r) => r.favorite) : records.value;
+    const payload = JSON.stringify(data, null, 2);
+    triggerBlobDownload(new Blob([payload], { type: "application/json" }), `gpt-image-2-${onlyFavorites ? "favorites" : "history"}-${Date.now()}.json`);
+  }
+
+  function importJSON(text: string): number {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      ElMessage.error("JSON 解析失败，文件格式不对。");
+      return 0;
+    }
+    const arr = (Array.isArray(parsed) ? parsed : []) as ImageRecord[];
+    const existing = new Set(records.value.map((r) => r.id));
+    const fresh = arr.filter((r) => r && r.id && !existing.has(r.id));
+    if (fresh.length === 0) {
+      ElMessage.info("没有新记录可导入（均已存在）。");
+      return 0;
+    }
+    records.value = [...fresh, ...records.value].slice(0, MAX_RECORDS);
+    persist();
+    refreshDisplay();
+    void hydrateThumbnails();
+    ElMessage.success(`已导入 ${fresh.length} 条记录（注：导入记录无原图）。`);
+    return fresh.length;
+  }
+
   return {
     records,
     displayItems,
     thumbnailById,
     projects,
+    stats,
     projectFilter,
+    favoriteOnly,
+    compareIds,
+    compareVisible,
     setProjectFilter,
+    setFavoriteOnly,
+    toggleFavorite,
+    toggleCompare,
+    clearCompare,
+    exportJSON,
+    importJSON,
     add,
     addMany,
     remove,

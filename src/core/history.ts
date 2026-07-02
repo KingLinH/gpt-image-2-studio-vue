@@ -17,6 +17,7 @@ export type ImageRecord = {
   durationMs: number;
   errorMessage?: string;
   project?: string;
+  favorite?: boolean;
   batch?: {
     id: string;
     title: string;
