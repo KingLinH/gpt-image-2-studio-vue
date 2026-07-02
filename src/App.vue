@@ -31,7 +31,7 @@ function goSettings() {
     <el-header class="app-header">
       <div class="brand">
         <img src="/favicon.svg" alt="logo" class="brand-logo" />
-        <span class="brand-title">GPT-Image-2 生图工作台</span>
+        <span class="brand-title">图创</span>
       </div>
       <el-menu :default-active="activeMenu" mode="horizontal" :ellipsis="false" router>
         <el-menu-item index="poster">海报</el-menu-item>

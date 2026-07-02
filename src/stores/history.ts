@@ -191,7 +191,7 @@ export const useHistoryStore = defineStore("history", () => {
   function exportJSON(onlyFavorites: boolean): void {
     const data = onlyFavorites ? records.value.filter((r) => r.favorite) : records.value;
     const payload = JSON.stringify(data, null, 2);
-    triggerBlobDownload(new Blob([payload], { type: "application/json" }), `gpt-image-2-${onlyFavorites ? "favorites" : "history"}-${Date.now()}.json`);
+    triggerBlobDownload(new Blob([payload], { type: "application/json" }), `image-create-${onlyFavorites ? "favorites" : "history"}-${Date.now()}.json`);
   }
 
   function importJSON(text: string): number {

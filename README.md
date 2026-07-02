@@ -1,10 +1,10 @@
-# GPT-Image-2 生图工作台（Vue 版）
+# 图创（ImageCreate）
 
-参考 [KDB-Wind/gpt-image-2-studio](https://github.com/KDB-Wind/gpt-image-2-studio)，用 **Vue 3 + Vite + TypeScript + Element Plus** 重写的轻量 GPT-Image-2 生图工具。
+参考 [KDB-Wind/gpt-image-2-studio](https://github.com/KDB-Wind/gpt-image-2-studio)，用 **Vue 3 + Vite + TypeScript + Element Plus** 重写的轻量 AI 生图与海报工作台。
 
 > 纯浏览器、无后端。填入你自己的 `Base URL` 与 `API Key`，所有请求从浏览器直接发往你配置的 OpenAI 兼容模型服务。密钥与历史仅保存在当前浏览器本地。
 
-**在线体验（GitHub Pages）**：<https://kinglinh.github.io/gpt-image-2-studio-vue/>
+**在线体验（GitHub Pages）**：<https://kinglinh.github.io/image-create/>
 
 ## 功能
 
