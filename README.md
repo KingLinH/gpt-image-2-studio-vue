@@ -4,8 +4,7 @@
 
 > 纯浏览器、无后端。填入你自己的 `Base URL` 与 `API Key`，所有请求从浏览器直接发往你配置的 OpenAI 兼容模型服务。密钥与历史仅保存在当前浏览器本地。
 
-**在线体验（GitHub Pages）**：<https://huangjl.github.io/gpt-image-2-studio-vue/>
-（把 `huangjl` 换成你的 GitHub 用户名、`gpt-image-2-studio-vue` 换成你的仓库名即可。）
+**在线体验（GitHub Pages）**：<https://kinglinh.github.io/gpt-image-2-studio-vue/>
 
 ## 功能
 
