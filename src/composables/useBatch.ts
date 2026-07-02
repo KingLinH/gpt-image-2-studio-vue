@@ -5,8 +5,8 @@ import { useConfigStore } from "@/stores/config";
 import { useHistoryStore } from "@/stores/history";
 import { buildOutputPath } from "@/core/fileNames";
 import { generateId, type ImageRecord } from "@/core/history";
-import { makeThumbnail } from "@/core/storage";
 import { describeError } from "./useImageGeneration";
+import type { ParsedImage } from "@/core/api";
 import { MAX_BATCH_TASK_COUNT } from "@/core/config";
 
 export type BatchMode = "same" | "custom";
@@ -203,61 +203,46 @@ export function useBatch() {
   async function persistBatchHistory(finalTasks: BatchTask[]): Promise<void> {
     if (!batchMeta.value) return;
     const records: ImageRecord[] = [];
+    const images: Record<string, ParsedImage> = {};
+    const batchCtx = {
+      id: batchMeta.value.id,
+      title: batchMeta.value.title,
+      createdAt: batchMeta.value.createdAt,
+      totalTasks: finalTasks.length,
+    };
     for (const task of finalTasks) {
-      if (task.status === "succeeded" && task.image) {
-        records.push({
-          id: generateId(),
-          status: "success",
-          createdAt: task.completedAt || new Date().toISOString(),
-          prompt: task.prompt,
-          optimizedPrompt: "",
-          model: configStore.config.imageModel,
-          size: configStore.config.defaultSize,
-          format: configStore.config.defaultFormat,
-          outputPath: buildOutputPath(
-            configStore.config.outputDirectory,
-            task.prompt,
-            configStore.config.defaultFormat,
-            new Date(task.completedAt || Date.now()),
-          ),
-          durationMs: task.durationMs,
-          thumbnail: await makeThumbnail(task.image),
-          batch: {
-            id: batchMeta.value.id,
-            title: batchMeta.value.title,
-            createdAt: batchMeta.value.createdAt,
-            taskId: task.id,
-            taskIndex: task.index,
-            taskTitle: task.title,
-            totalTasks: finalTasks.length,
-          },
-        });
-      } else if (task.status === "failed") {
-        records.push({
-          id: generateId(),
-          status: "failed",
-          createdAt: task.completedAt || new Date().toISOString(),
-          prompt: task.prompt,
-          optimizedPrompt: "",
-          model: configStore.config.imageModel,
-          size: configStore.config.defaultSize,
-          format: configStore.config.defaultFormat,
-          outputPath: "",
-          durationMs: task.durationMs,
-          errorMessage: task.errorMessage,
-          batch: {
-            id: batchMeta.value.id,
-            title: batchMeta.value.title,
-            createdAt: batchMeta.value.createdAt,
-            taskId: task.id,
-            taskIndex: task.index,
-            taskTitle: task.title,
-            totalTasks: finalTasks.length,
-          },
-        });
-      }
+      if (task.status !== "succeeded" && task.status !== "failed") continue;
+      const id = generateId();
+      const succeeded = task.status === "succeeded" && !!task.image;
+      records.push({
+        id,
+        status: succeeded ? "success" : "failed",
+        createdAt: task.completedAt || new Date().toISOString(),
+        prompt: task.prompt,
+        optimizedPrompt: "",
+        model: configStore.config.imageModel,
+        size: configStore.config.defaultSize,
+        format: configStore.config.defaultFormat,
+        outputPath: succeeded
+          ? buildOutputPath(
+              configStore.config.outputDirectory,
+              task.prompt,
+              configStore.config.defaultFormat,
+              new Date(task.completedAt || Date.now()),
+            )
+          : "",
+        durationMs: task.durationMs,
+        errorMessage: succeeded ? undefined : task.errorMessage,
+        batch: {
+          ...batchCtx,
+          taskId: task.id,
+          taskIndex: task.index,
+          taskTitle: task.title,
+        },
+      });
+      if (succeeded && task.image) images[id] = task.image;
     }
-    if (records.length > 0) historyStore.addMany(records);
+    if (records.length > 0) await historyStore.addMany(records, images);
   }
 
   function reset(): void {

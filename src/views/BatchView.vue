@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { UploadFile } from "element-plus";
+import { ElMessage, type UploadFile } from "element-plus";
 import { useBatch } from "@/composables/useBatch";
 import { describeError } from "@/composables/useImageGeneration";
 import { downloadImage } from "@/core/storage";
@@ -48,7 +48,7 @@ async function downloadTask(previewUrl: string) {
   try {
     await downloadImage({ base64, url }, `batch-${Date.now()}.${configStore.config.defaultFormat}`, configStore.config.defaultFormat);
   } catch (error) {
-    describeError(error);
+    ElMessage.error(describeError(error));
   }
 }
 

@@ -2,14 +2,23 @@
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useConfigStore } from "@/stores/config";
+import { useTheme } from "@/composables/useTheme";
+import { Monitor, Moon, Sunny } from "@element-plus/icons-vue";
 
 const route = useRoute();
 const router = useRouter();
 const configStore = useConfigStore();
+const { cycle: cycleTheme } = useTheme();
 
 const activeMenu = computed(() => (route.name as string) ?? "single");
 const showConfigBanner = computed(
   () => !configStore.isConfigured && route.name !== "settings",
+);
+const themeIcon = computed(() =>
+  configStore.config.uiTheme === "dark" ? Moon : configStore.config.uiTheme === "light" ? Sunny : Monitor,
+);
+const themeLabel = computed(() =>
+  configStore.config.uiTheme === "dark" ? "深色" : configStore.config.uiTheme === "light" ? "浅色" : "跟随系统",
 );
 
 function goSettings() {
@@ -30,6 +39,11 @@ function goSettings() {
         <el-menu-item index="history">历史</el-menu-item>
         <el-menu-item index="settings">设置</el-menu-item>
       </el-menu>
+      <el-tooltip :content="`主题：${themeLabel}（点击切换）`" placement="bottom">
+        <el-button class="theme-toggle" circle @click="cycleTheme">
+          <el-icon><component :is="themeIcon" /></el-icon>
+        </el-button>
+      </el-tooltip>
     </el-header>
 
     <el-main class="app-main">
@@ -91,6 +105,9 @@ function goSettings() {
 .app-header :deep(.el-menu) {
   border-bottom: none;
   flex: 1;
+}
+.theme-toggle {
+  flex-shrink: 0;
 }
 .app-main {
   max-width: 1200px;

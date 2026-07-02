@@ -1,30 +1,26 @@
 <script setup lang="ts">
+import { onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useHistoryStore } from "@/stores/history";
-import { downloadImage } from "@/core/storage";
 import { setPendingPrompt } from "@/composables/promptTransfer";
 import type { ImageRecord } from "@/core/history";
 
 const historyStore = useHistoryStore();
 const router = useRouter();
 
+onMounted(() => {
+  void historyStore.hydrateThumbnails();
+});
+
+function thumbOf(id: string): string | undefined {
+  return historyStore.thumbnailById[id];
+}
+
 function reuse(record: ImageRecord) {
   setPendingPrompt(record.prompt);
   router.push({ name: "single" });
   ElMessage.success("已载入提示词到单图页。");
-}
-
-async function download(record: ImageRecord) {
-  if (!record.thumbnail) {
-    ElMessage.warning("该记录没有可下载的图片。");
-    return;
-  }
-  try {
-    await downloadImage({ base64: stripDataPrefix(record.thumbnail) }, `${record.id}.jpg`, "jpeg");
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : "下载失败。");
-  }
 }
 
 function remove(record: ImageRecord) {
@@ -37,21 +33,15 @@ async function clearAll() {
     await ElMessageBox.confirm("确定清空全部历史记录？此操作不可恢复。", "清空历史", {
       type: "warning",
     });
-    historyStore.clear();
+    await historyStore.clear();
     ElMessage.success("已清空历史。");
   } catch {
     /* 取消 */
   }
 }
 
-function stripDataPrefix(dataUrl: string): string | undefined {
-  const i = dataUrl.indexOf(",");
-  return i >= 0 ? dataUrl.slice(i + 1) : undefined;
-}
-
 function formatTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleString();
+  return new Date(iso).toLocaleString();
 }
 
 function statusText(status: string): string {
@@ -80,10 +70,10 @@ function statusType(status: string): "success" | "danger" | "info" {
         <template v-if="item.type === 'record'">
           <div class="record-card">
             <el-image
-              v-if="item.record.thumbnail"
+              v-if="thumbOf(item.record.id)"
               class="thumb"
-              :src="item.record.thumbnail"
-              :preview-src-list="item.record.thumbnail ? [item.record.thumbnail] : []"
+              :src="thumbOf(item.record.id)"
+              :preview-src-list="thumbOf(item.record.id) ? [thumbOf(item.record.id)!] : []"
               fit="cover"
               preview-teleported
             />
@@ -109,7 +99,7 @@ function statusType(status: string): "success" | "danger" | "info" {
                 link
                 type="primary"
                 size="small"
-                @click="download(item.record)"
+                @click="historyStore.downloadOriginal(item.record)"
               >
                 下载
               </el-button>
@@ -129,10 +119,10 @@ function statusType(status: string): "success" | "danger" | "info" {
           <div class="thumb-grid">
             <div v-for="rec in item.records" :key="rec.id" class="batch-item">
               <el-image
-                v-if="rec.thumbnail"
+                v-if="thumbOf(rec.id)"
                 class="thumb"
-                :src="rec.thumbnail"
-                :preview-src-list="rec.thumbnail ? [rec.thumbnail] : []"
+                :src="thumbOf(rec.id)"
+                :preview-src-list="thumbOf(rec.id) ? [thumbOf(rec.id)!] : []"
                 fit="cover"
                 preview-teleported
               />

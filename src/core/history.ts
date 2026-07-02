@@ -15,7 +15,6 @@ export type ImageRecord = {
   format: string;
   outputPath: string;
   durationMs: number;
-  thumbnail?: string; // 压缩缩略图 data URL（仅成功时）
   errorMessage?: string;
   batch?: {
     id: string;

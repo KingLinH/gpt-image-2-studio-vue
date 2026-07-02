@@ -9,6 +9,8 @@ import {
   type ImageQuality,
 } from "./imageOptions";
 
+export type UiTheme = "auto" | "light" | "dark";
+
 export type AppConfig = {
   baseUrl: string;
   apiKey: string;
@@ -21,6 +23,7 @@ export type AppConfig = {
   defaultQuality: ImageQuality;
   defaultFormat: ImageOutputFormat;
   defaultCompression: number;
+  uiTheme: UiTheme;
   batchDefaultTaskCount: number;
   batchDefaultConcurrency: number;
   batchDefaultIntervalSeconds: number;
@@ -83,6 +86,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   defaultQuality: "auto",
   defaultFormat: "png",
   defaultCompression: 90,
+  uiTheme: "auto",
   batchDefaultTaskCount: 4,
   batchDefaultConcurrency: DEFAULT_BATCH_EXECUTION_CONFIG.concurrency,
   batchDefaultIntervalSeconds: DEFAULT_BATCH_EXECUTION_CONFIG.intervalSeconds,
@@ -115,6 +119,7 @@ export function mergeConfig(value: MaybeConfig | null | undefined): AppConfig {
   merged.defaultCompression = clampInt(merged.defaultCompression, 0, 100, DEFAULT_CONFIG.defaultCompression);
   merged.defaultQuality = isImageQuality(merged.defaultQuality) ? merged.defaultQuality : DEFAULT_CONFIG.defaultQuality;
   merged.defaultFormat = isImageOutputFormat(merged.defaultFormat) ? merged.defaultFormat : DEFAULT_CONFIG.defaultFormat;
+  merged.uiTheme = isUiTheme(merged.uiTheme) ? merged.uiTheme : DEFAULT_CONFIG.uiTheme;
   merged.batchDefaultTaskCount = clampBatchTaskCount(asNumber(merged.batchDefaultTaskCount));
   const exec = clampBatchExecutionConfig({
     concurrency: asNumber(merged.batchDefaultConcurrency),
@@ -170,4 +175,8 @@ function asString(value: unknown): string {
 
 function asNumber(value: unknown): number {
   return typeof value === "number" ? value : Number.NaN;
+}
+
+function isUiTheme(value: unknown): value is UiTheme {
+  return value === "auto" || value === "light" || value === "dark";
 }

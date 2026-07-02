@@ -6,7 +6,7 @@ import { useConfigStore } from "@/stores/config";
 import { useHistoryStore } from "@/stores/history";
 import { buildOutputPath } from "@/core/fileNames";
 import { generateId, type ImageRecord } from "@/core/history";
-import { downloadImage, makeThumbnail } from "@/core/storage";
+import { downloadImage } from "@/core/storage";
 
 export function useImageGeneration() {
   const configStore = useConfigStore();
@@ -77,9 +77,8 @@ export function useImageGeneration() {
           configStore.config.defaultFormat,
         ),
         durationMs: Date.now() - startedAt,
-        thumbnail: await makeThumbnail(result[0]),
       };
-      historyStore.add(record);
+      await historyStore.add(record, result[0]);
       ElMessage.success(`生成成功，共 ${result.length} 张。`);
     } catch (error) {
       errorMessage.value = describeError(error);
