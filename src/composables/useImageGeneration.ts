@@ -7,7 +7,7 @@ import { useHistoryStore } from "@/stores/history";
 import { useProjectsStore } from "@/stores/projects";
 import { buildOutputPath } from "@/core/fileNames";
 import { generateId, type ImageRecord } from "@/core/history";
-import { downloadImage } from "@/core/storage";
+import { downloadImage, parsedImageToFile } from "@/core/storage";
 import { resolveStyleModifiers } from "@/core/stylePresets";
 import { resolveCompositionModifiers } from "@/core/compositionPresets";
 
@@ -143,6 +143,21 @@ export function useImageGeneration() {
     errorMessage.value = "";
   }
 
+  function clearResults() {
+    images.value = [];
+  }
+
+  // 把某张结果图设为参考图（替换式），用于「以此图优化」迭代式图生图。
+  async function useAsReference(image: ParsedImage) {
+    try {
+      const file = await parsedImageToFile(image, "result.jpg");
+      referenceImages.value = [file];
+      ElMessage.success("已将此图设为参考图。微调提示词后点「生成」，将以它为基础做图生图优化。");
+    } catch (error) {
+      ElMessage.error(describeError(error));
+    }
+  }
+
   return {
     loading,
     optimizing,
@@ -157,6 +172,8 @@ export function useImageGeneration() {
     optimize,
     generate,
     download,
+    useAsReference,
+    clearResults,
     reset,
   };
 }

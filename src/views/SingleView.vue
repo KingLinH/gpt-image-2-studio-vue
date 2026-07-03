@@ -137,7 +137,13 @@ function clearReference() {
     </div>
 
     <div class="panel result-panel" v-if="gen.images.value.length > 0 || gen.loading.value">
-      <p class="panel-title">结果</p>
+      <div class="result-head">
+        <p class="panel-title" style="margin-bottom: 0">结果</p>
+        <div v-if="gen.images.value.length > 0" class="result-head-actions">
+          <el-button size="small" :loading="gen.loading.value" @click="gen.generate">重新生成</el-button>
+          <el-button size="small" @click="gen.clearResults">清空结果</el-button>
+        </div>
+      </div>
       <div v-if="gen.loading.value" class="loading-block">
         <el-icon class="is-loading" :size="28"><Loading /></el-icon>
         <span>生成中，请耐心等待（通常 1~3 分钟）…</span>
@@ -152,9 +158,12 @@ function clearReference() {
             fit="cover"
             preview-teleported
           />
-          <el-button link type="primary" size="small" @click="gen.download(img, i)">
-            <el-icon><Download /></el-icon> 下载
-          </el-button>
+          <div class="result-item-actions">
+            <el-button link type="primary" size="small" @click="gen.useAsReference(img)">以此图优化</el-button>
+            <el-button link type="primary" size="small" @click="gen.download(img, i)">
+              <el-icon><Download /></el-icon> 下载
+            </el-button>
+          </div>
           <div class="muted" v-if="img.revisedPrompt">修订：{{ img.revisedPrompt }}</div>
         </div>
       </div>
@@ -204,6 +213,20 @@ function clearReference() {
 }
 .result-panel {
   min-height: 120px;
+}
+.result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.result-head-actions {
+  display: flex;
+  gap: 8px;
+}
+.result-item-actions {
+  display: flex;
+  gap: 4px;
 }
 .loading-block {
   display: flex;

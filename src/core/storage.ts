@@ -106,6 +106,19 @@ export function base64ToFile(base64: string, name: string, type = "image/jpeg"):
   return new File([bytes], name, { type });
 }
 
+// 生成结果（base64 或 url）→ File，供「以此图优化」转成参考图。
+export async function parsedImageToFile(
+  image: { base64?: string; url?: string },
+  name = "result.jpg",
+): Promise<File> {
+  if (image.base64) return base64ToFile(image.base64, name);
+  if (image.url) {
+    const blob = await fetchUrlToBlob(image.url);
+    return new File([blob], name, { type: blob.type || "image/jpeg" });
+  }
+  throw new Error("图片没有可用的数据。");
+}
+
 // 触发浏览器下载。base64 或远程 url 均可。
 export async function downloadImage(
   source: { base64?: string; url?: string },
