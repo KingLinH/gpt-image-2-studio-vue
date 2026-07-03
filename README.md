@@ -2,7 +2,7 @@
 
 参考 [KDB-Wind/gpt-image-2-studio](https://github.com/KDB-Wind/gpt-image-2-studio)，用 **Vue 3 + Vite + TypeScript + Element Plus** 重写的轻量 AI 生图与海报工作台。
 
-> 纯浏览器、无后端。填入你自己的 `Base URL` 与 `API Key`，所有请求从浏览器直接发往你配置的 OpenAI 兼容模型服务。密钥与历史仅保存在当前浏览器本地。
+> 纯浏览器、无后端。填入你自己的 `Base URL` 与 `API Key`，所有请求从浏览器直接发往你配置的 OpenAI 兼容模型服务。密钥、历史与素材仅保存在当前浏览器本地。
 
 **在线体验（GitHub Pages）**：<https://kinglinh.github.io/image-create/>
 
@@ -76,17 +76,23 @@ npm run preview  # 预览构建产物
 ```
 src/
 ├── core/        # 纯逻辑（无 Vue 依赖），移植自参考项目
-│   ├── api.ts           # OpenAI 兼容请求（responses→chat/completions 回退、images/generations、images/edits）
-│   ├── config.ts        # 配置类型/默认值/校验/normalizeBaseUrl
-│   ├── imageOptions.ts  # 尺寸/质量/格式与尺寸校验
-│   ├── batch.ts         # 并发队列/重试/暂停/取消
-│   ├── history.ts       # 记录类型与分组
-│   ├── fileNames.ts     # 文件名/日期目录
-│   ├── providerErrors.ts# 错误分类（决定重试/暂停）
-│   └── storage.ts       # localStorage、缩略图、下载、目录授权
-├── stores/      # Pinia：config、history
-├── composables/ # useImageGeneration、useBatch、promptTransfer
-├── views/       # SingleView、BatchView、HistoryView、SettingsView
+│   ├── api.ts            # OpenAI 兼容请求（responses→chat/completions 回退、images/generations、images/edits）
+│   ├── config.ts         # 配置类型/默认值/校验/normalizeBaseUrl
+│   ├── imageOptions.ts   # 尺寸/质量/格式与尺寸校验
+│   ├── batch.ts          # 并发队列/重试/暂停/取消
+│   ├── history.ts        # 记录类型与分组
+│   ├── historyStats.ts   # 数据看板统计（纯函数）
+│   ├── fileNames.ts      # 文件名/日期目录
+│   ├── providerErrors.ts # 错误分类（决定重试/暂停）
+│   ├── promptSplitter.ts # AI 提示词拆分
+│   ├── posterTypes.ts    # 海报类型/构图/模板预设
+│   ├── stylePresets.ts / compositionPresets.ts  # 风格/构图预设
+│   ├── imageStore.ts / assetStore.ts  # 历史/素材 IndexedDB
+│   └── storage.ts        # localStorage、缩略图、下载、参考图压缩、目录授权
+├── stores/      # Pinia：config、history、snippets、projects、assets
+├── composables/ # useImageGeneration、useBatch、useTheme、promptTransfer
+├── components/  # SnippetDrawer、BulkPasteDialog、CompareDialog、StatsPanel、AssetsDrawer、PosterBuilder、ProjectSelect
+├── views/       # PosterView、SingleView、BatchView、HistoryView、SettingsView
 └── App.vue / main.ts / router/
 ```
 
@@ -103,7 +109,7 @@ src/
 ## 注意事项
 
 - 纯浏览器能否直连模型服务，取决于供应商是否允许 CORS。出现 CORS 错误时，请换支持浏览器访问的供应商或自建代理。
-- 历史记录仅保存压缩缩略图以控制 `localStorage` 体积；原图请及时「下载」保存。
+- 历史/素材的**原图与缩略图持久化在浏览器 IndexedDB**，元数据存 `localStorage`；浏览器清理站点数据可能清掉 IndexedDB，重要图片建议定期「下载」或用历史页「导出」备份。
 - 切勿把真实 `API Key` 提交到代码仓库、Issue 或截图。
 
 ## License
