@@ -8,6 +8,7 @@ const props = defineProps<{
   actionPrompt: string;
   loading: boolean;
   videoExtracting: boolean;
+  canReextractVideo: boolean;
   videoFrameCount: number;
   videoTargetFps: number;
   videoSamplingMode: VideoSamplingMode;
@@ -29,6 +30,7 @@ const emit = defineEmits<{
   updateVideoEndTime: [value: number];
   updateDefaultDelay: [value: number];
   applyVideoPreset: [value: VideoPreset];
+  reextractVideo: [];
 }>();
 
 function onChange(file: UploadFile) {
@@ -56,9 +58,19 @@ function onChange(file: UploadFile) {
       </el-upload>
       <p class="muted">
         {{ props.mode === "animated"
-          ? "上传视频后会自动截取约 2.5 秒关键片段、按 12fps 抽帧并合成 GIF；也可上传多张图片作为帧。"
+          ? "上传视频后默认截取约 2.5 秒关键动作、按 12fps 抽帧；想要更好效果，优先选准片段，再调整流畅度或体积。"
           : "上传一张 PNG/JPEG/WebP 后，工具会按当前规格裁剪、补边、压缩并校验；重新上传会替换当前素材。" }}
       </p>
+
+      <div v-if="props.mode === 'animated'" class="usage-tips">
+        <p class="tips-title">视频转动态表情小技巧</p>
+        <ul>
+          <li>先选动作最集中的 1.5–3 秒，主体越大、背景越简单，越容易做出清晰表情。</li>
+          <li>不要只追求帧数更多；片段里有前摇、停顿或无效画面时，抽再多帧也会显得拖沓。</li>
+          <li>动作拖沓就缩短起止时间；动作不完整就稍微延长结束秒；不够顺滑再提高 FPS。</li>
+          <li>体积超 500KB 时，优先缩短片段、选择“更小体积”，或换背景更简单的视频。</li>
+        </ul>
+      </div>
 
       <div v-if="props.mode === 'animated'" class="video-settings">
         <p class="settings-title">视频转 GIF 自动处理</p>
@@ -83,9 +95,15 @@ function onChange(file: UploadFile) {
           <el-collapse-item title="高级设置：换片段或调流畅度/体积" name="video-advanced">
             <div class="preset-row">
               <span>效果预设</span>
-              <el-button size="small" plain @click="emit('applyVideoPreset', 'smooth')">更流畅</el-button>
-              <el-button size="small" plain @click="emit('applyVideoPreset', 'normal')">自动推荐</el-button>
-              <el-button size="small" plain @click="emit('applyVideoPreset', 'compact')">更小体积</el-button>
+              <el-tooltip content="提高采样 FPS，适合快速动作或表情变化；画面更顺，但文件更容易变大。" placement="top">
+                <el-button size="small" plain @click="emit('applyVideoPreset', 'smooth')">更流畅</el-button>
+              </el-tooltip>
+              <el-tooltip content="默认平衡方案，适合大多数 1.5–3 秒的关键动作片段。" placement="top">
+                <el-button size="small" plain @click="emit('applyVideoPreset', 'normal')">自动推荐</el-button>
+              </el-tooltip>
+              <el-tooltip content="减少帧数和延长帧间隔，适合背景复杂、体积超限或动作较慢的视频。" placement="top">
+                <el-button size="small" plain @click="emit('applyVideoPreset', 'compact')">更小体积</el-button>
+              </el-tooltip>
             </div>
             <el-radio-group
               class="sampling-mode"
@@ -149,8 +167,20 @@ function onChange(file: UploadFile) {
                 />
               </label>
             </div>
+            <div class="reextract-row">
+              <el-button
+                size="small"
+                type="primary"
+                plain
+                :disabled="!props.canReextractVideo || props.videoExtracting"
+                :loading="props.videoExtracting"
+                @click="emit('reextractVideo')"
+              >
+                按当前设置重新抽帧
+              </el-button>
+            </div>
             <p class="muted">
-              结束秒填 0 会自动使用起始秒后的约 2.5 秒；更短片段通常更流畅也更容易压到 500KB。
+              结束秒填 0 会自动使用起始秒后的约 2.5 秒；更短片段通常更流畅也更容易压到 500KB。调整起止时间、FPS 或预设后，点击“按当前设置重新抽帧”即可作用到当前视频。
             </p>
           </el-collapse-item>
         </el-collapse>
@@ -207,6 +237,28 @@ function onChange(file: UploadFile) {
   margin: 0;
   font-weight: 600;
 }
+.usage-tips {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-text-color-regular);
+}
+.tips-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-color-primary);
+}
+.usage-tips ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.usage-tips li {
+  margin: 3px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
 .video-settings {
   margin-top: 14px;
   padding-top: 14px;
@@ -247,6 +299,9 @@ function onChange(file: UploadFile) {
   gap: 6px;
   font-size: 13px;
   color: var(--el-text-color-secondary);
+}
+.reextract-row {
+  margin: 12px 0 8px;
 }
 .sampling-summary {
   display: flex;

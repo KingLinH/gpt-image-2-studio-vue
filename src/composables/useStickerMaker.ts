@@ -90,6 +90,7 @@ export function useStickerMaker() {
   const videoStartTime = ref(0);
   const videoEndTime = ref(0);
   const videoExtracting = ref(false);
+  const lastVideoFile = ref<File | null>(null);
   const lastVideoMeta = ref<StickerVideoMetadata | null>(null);
   const sourceMode = ref<"upload" | "video" | "ai" | null>(null);
   const promptCharacter = ref("可爱的原创卡通角色");
@@ -116,6 +117,7 @@ export function useStickerMaker() {
   }));
   const hasSource = computed(() => Boolean(staticSource.value));
   const hasFrames = computed(() => frames.value.length > 0);
+  const canReextractVideo = computed(() => Boolean(lastVideoFile.value) && sourceMode.value === "video");
   const videoSamplingPlan = computed<VideoSamplingPlan>(() => {
     const currentSpec = spec.value;
     const minFrames = currentSpec.minFrames ?? 2;
@@ -174,6 +176,7 @@ export function useStickerMaker() {
 
   function addGeneratedImage(image: ParsedImage, index: number) {
     const source = parsedImageToImageSource(image, `generated-${index + 1}.png`);
+    clearCurrentVideo();
     sourceMode.value = "ai";
     if (mode.value === "static") {
       clearSource(staticSource.value);
@@ -331,7 +334,7 @@ export function useStickerMaker() {
     frames.value = [];
     generatedImages.value = [];
     sourceMode.value = null;
-    lastVideoMeta.value = null;
+    clearCurrentVideo();
     revokeExport(staticExport.value);
     staticExport.value = null;
     revokeGifExport();
@@ -339,6 +342,7 @@ export function useStickerMaker() {
   }
 
   async function addImageFiles(imageFiles: File[]) {
+    clearCurrentVideo();
     sourceMode.value = "upload";
     if (mode.value === "static") {
       clearSource(staticSource.value);
@@ -367,12 +371,28 @@ export function useStickerMaker() {
     const file = videoFiles.find(isVideoFile);
     if (!file) return;
 
+    lastVideoFile.value = file;
+    await extractFramesFromVideoFile(file, { refreshMeta: true });
+  }
+
+  async function reextractCurrentVideo() {
+    if (!lastVideoFile.value) {
+      ElMessage.warning("请先上传视频素材。");
+      return;
+    }
+    await extractFramesFromVideoFile(lastVideoFile.value, { refreshMeta: false });
+  }
+
+  async function extractFramesFromVideoFile(file: File, options: { refreshMeta: boolean }) {
     videoExtracting.value = true;
     try {
-      lastVideoMeta.value = await getVideoMetadata(file);
+      if (options.refreshMeta || !lastVideoMeta.value) {
+        lastVideoMeta.value = await getVideoMetadata(file);
+      }
+      const meta = lastVideoMeta.value;
       const autoEndTime = videoEndTime.value > videoStartTime.value
         ? videoEndTime.value
-        : Math.min(lastVideoMeta.value.duration, videoStartTime.value + 2.5);
+        : Math.min(meta.duration, videoStartTime.value + 2.5);
       const plan = videoSamplingPlan.value;
       const extracted = await extractVideoFrames(file, {
         frameCount: plan.compliantFrameCount,
@@ -397,13 +417,18 @@ export function useStickerMaker() {
       } else if (plan.effectiveFps !== null && plan.effectiveFps < 8) {
         ElMessage.warning(`已从视频提取 ${nextFrames.length} 帧；当前有效约 ${plan.effectiveFps.toFixed(1)}fps，动作可能不连贯，建议缩短截取范围。`);
       } else {
-        ElMessage.success(`已自动提取 ${nextFrames.length} 帧，约 ${plan.effectiveFps?.toFixed(1) ?? "-"}fps，可直接合成 GIF 或展开高级设置微调。`);
+        ElMessage.success(`已按当前设置提取 ${nextFrames.length} 帧，约 ${plan.effectiveFps?.toFixed(1) ?? "-"}fps，可直接合成 GIF 或继续微调。`);
       }
     } catch (error) {
       ElMessage.error(error instanceof Error ? error.message : "视频抽帧失败。 ");
     } finally {
       videoExtracting.value = false;
     }
+  }
+
+  function clearCurrentVideo() {
+    lastVideoFile.value = null;
+    lastVideoMeta.value = null;
   }
 
   function scheduleLivePreview() {
@@ -498,6 +523,7 @@ export function useStickerMaker() {
     videoEndTime,
     videoExtracting,
     lastVideoMeta,
+    canReextractVideo,
     sourceMode,
     promptCharacter,
     promptAction,
@@ -516,6 +542,7 @@ export function useStickerMaker() {
     hasFrames,
     gifExportBaseName,
     applyVideoPreset,
+    reextractCurrentVideo,
     setMode,
     addFiles,
     addGeneratedImage,

@@ -92,6 +92,7 @@ async function downloadZip() {
         :action-prompt="maker.promptAction.value"
         :loading="maker.loading.value"
         :video-extracting="maker.videoExtracting.value"
+        :can-reextract-video="maker.canReextractVideo.value"
         :video-frame-count="maker.videoFrameCount.value"
         :video-target-fps="maker.videoTargetFps.value"
         :video-sampling-mode="maker.videoSamplingMode.value"
@@ -109,6 +110,7 @@ async function downloadZip() {
         @update-video-end-time="maker.videoEndTime.value = $event"
         @update-default-delay="maker.setAllDelay"
         @apply-video-preset="maker.applyVideoPreset"
+        @reextract-video="maker.reextractCurrentVideo"
         @upload="maker.addFiles"
         @generate="maker.generateCandidate"
       />
