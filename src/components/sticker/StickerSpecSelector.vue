@@ -25,7 +25,10 @@ const model = defineModel<StickerAssetKind>({ required: true });
         <el-tag size="small" type="info">{{ spec.formats.join(" / ").toUpperCase() }}</el-tag>
         <el-tag size="small" type="warning">≤ {{ formatFileSize(spec.maxBytes) }}</el-tag>
       </div>
-      <div v-if="spec.maxFrames" class="muted frames">
+      <div v-if="spec.kind === 'animated-main'" class="muted frames">
+        帧数影响流畅度和 500KB 压缩难度，工具会自动优化；普通动态 GIF 不按特效素材 24 帧限制校验。
+      </div>
+      <div v-else-if="spec.maxFrames" class="muted frames">
         帧数：{{ spec.minFrames }}–{{ spec.maxFrames }}，延迟：{{ spec.minDelayMs }}–{{ spec.maxDelayMs }}ms
       </div>
     </el-card>

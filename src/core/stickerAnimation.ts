@@ -212,7 +212,7 @@ function buildFrameCandidates(frames: StickerGifFrame[], spec: StickerSpec, allo
 
   uniqueNumbers([Math.ceil(frames.length * 0.75), Math.ceil(frames.length * 0.5), Math.ceil(frames.length * 0.35), Math.ceil(frames.length * 0.25), minFrames])
     .filter((count) => count >= minFrames && count < frames.length)
-    .forEach((count) => candidates.push({ frames: sampleFramesWithMergedDelay(frames, count), strategy: `均匀保留 ${count} 帧并合并延迟` }));
+    .forEach((count) => candidates.push({ frames: sampleFramesWithMergedDelay(frames, count), strategy: `为控制 500KB 体积均匀保留 ${count} 帧并合并延迟` }));
   return candidates;
 }
 

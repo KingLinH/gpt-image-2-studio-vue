@@ -30,8 +30,11 @@ export function buildStickerPrompt(input: {
   return parts.filter(Boolean).join("，");
 }
 
+const AI_FRAME_PROMPT_MAX_COUNT = 24;
+
 export function buildStickerFramePrompts(input: { character: string; action: string; frameCount: number; style?: string }): string[] {
-  const count = Math.max(2, Math.min(24, Math.round(input.frameCount)));
+  // 这里限制的是 AI 候选分镜提示数量，避免一次生成过多提示；不是普通动态 GIF 投稿帧数上限。
+  const count = Math.max(2, Math.min(AI_FRAME_PROMPT_MAX_COUNT, Math.round(input.frameCount)));
   return Array.from({ length: count }, (_, index) => {
     const progress = count === 1 ? 1 : index / (count - 1);
     return buildStickerPrompt({

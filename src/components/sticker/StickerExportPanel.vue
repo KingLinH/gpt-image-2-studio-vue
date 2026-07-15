@@ -72,7 +72,7 @@ const zipActionText = computed(() => props.exporting ? "正在准备导出…" :
         {{ zipActionText }}
       </el-button>
       <span v-if="props.exporting" class="exporting-tip">
-        {{ props.mode === 'animated' ? '正在尝试不同颜色数和帧数，素材越复杂耗时越久。' : '正在尝试不同压缩参数，尽量贴近规格上限。' }}
+        {{ props.mode === 'animated' ? '正在尝试降色和必要的帧抽样以控制 500KB 体积，素材越复杂耗时越久。' : '正在尝试不同压缩参数，尽量贴近规格上限。' }}
       </span>
       <span v-if="hasInvalidExport" class="invalid-export-tip">结果仍超出规格，调整素材后重新处理/合成再下载。</span>
     </div>
@@ -123,7 +123,7 @@ const zipActionText = computed(() => props.exporting ? "正在准备导出…" :
           </template>
         </span>
         <span v-if="hasInvalidGifExport" class="invalid-line">
-          当前 GIF 仍超过规格上限，请减少帧数/颜色或调整素材后重新合成。
+          当前 GIF 仍超过 500KB，请减少背景复杂度、缩短片段或选择更小体积预设后重新合成。
         </span>
         <el-button type="primary" plain size="small" :disabled="hasInvalidGifExport" @click="emit('downloadGif')">
           下载 GIF 表情

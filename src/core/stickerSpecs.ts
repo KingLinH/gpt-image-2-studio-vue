@@ -12,6 +12,8 @@ export type StickerSpec = {
   maxBytes: number;
   minFrames?: number;
   maxFrames?: number;
+  recommendedMaxFrames?: number;
+  toolMaxFrames?: number;
   minDelayMs?: number;
   maxDelayMs?: number;
   requiresSquare?: boolean;
@@ -45,8 +47,8 @@ export type StickerAnimationInfo = StickerImageInfo & {
 const KB = 1024;
 
 // 规格集中放在这里，便于按微信表情开放平台最新页面更新。
-// 当前默认值按常见投稿要求整理；正式投稿前请以开放平台后台/官方规范页为准。
-export const STICKER_SPEC_SOURCE_NOTE = "按微信表情开放平台常见投稿要求整理；发布前请以当前官方规范复核。";
+// 普通动态 GIF 主图不套用特效素材的 24 帧限制；正式投稿前请以开放平台后台/官方规范页为准。
+export const STICKER_SPEC_SOURCE_NOTE = "按微信表情开放平台常见投稿要求整理；普通动态 GIF 重点校验尺寸、格式和体积，发布前请以当前官方规范复核。";
 
 export const STICKER_SPECS: StickerSpec[] = [
   {
@@ -64,13 +66,14 @@ export const STICKER_SPECS: StickerSpec[] = [
   {
     kind: "animated-main",
     label: "动态表情主图",
-    description: "用于单个动态表情。第一版导出 GIF，建议减少复杂背景与帧数以控制体积。",
+    description: "用于单个动态表情。导出 GIF，工具会优先保证 240×240 与 500KB 体积要求。",
     width: 240,
     height: 240,
     formats: ["gif"],
     maxBytes: 500 * KB,
     minFrames: 2,
-    maxFrames: 24,
+    recommendedMaxFrames: 48,
+    toolMaxFrames: 90,
     minDelayMs: 60,
     maxDelayMs: 1000,
     requiresSquare: true,
@@ -153,8 +156,15 @@ export function validateStickerAnimation(info: StickerAnimationInfo, spec: Stick
   if (spec.maxFrames && info.frameCount > spec.maxFrames) {
     issues.push({
       level: "error",
-      message: `帧数为 ${info.frameCount}，超过建议上限 ${spec.maxFrames} 帧。`,
-      suggestion: "请删除相近帧或提高帧间隔。",
+      message: `帧数为 ${info.frameCount}，超过该规格上限 ${spec.maxFrames} 帧。`,
+      suggestion: "请缩短视频截取范围、降低采样 FPS，或删除相近帧。",
+    });
+  }
+  if (!spec.maxFrames && spec.recommendedMaxFrames && info.frameCount > spec.recommendedMaxFrames) {
+    issues.push({
+      level: "warning",
+      message: `帧数为 ${info.frameCount}，高于工具建议的 ${spec.recommendedMaxFrames} 帧。`,
+      suggestion: "帧数越多越难压到 500KB；如体积超限，请缩短片段、降低 FPS 或选择更小体积预设。",
     });
   }
   const tooFast = spec.minDelayMs ? info.delays.some((delay) => delay < spec.minDelayMs!) : false;

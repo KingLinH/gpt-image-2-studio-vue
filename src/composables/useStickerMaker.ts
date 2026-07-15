@@ -47,6 +47,20 @@ export type StickerExportResult = {
   optimization?: StickerStaticOptimizeResult;
 };
 
+export type VideoSamplingMode = "frame-count" | "fps";
+export type VideoPreset = "smooth" | "normal" | "compact";
+export type VideoSamplingPlan = {
+  selectedDuration: number | null;
+  requestedFrameCount: number;
+  compliantFrameCount: number;
+  effectiveFps: number | null;
+  wasClamped: boolean;
+  minFrames: number;
+  toolMaxFrames: number;
+  recommendedMaxFrames: number;
+  tip: string;
+};
+
 export function useStickerMaker() {
   const configStore = useConfigStore();
   const mode = ref<"static" | "animated">("static");
@@ -69,8 +83,10 @@ export function useStickerMaker() {
     yRatio: 0.82,
     align: "center",
   });
-  const defaultDelayMs = ref(120);
-  const videoFrameCount = ref(10);
+  const defaultDelayMs = ref(83);
+  const videoFrameCount = ref(30);
+  const videoTargetFps = ref(12);
+  const videoSamplingMode = ref<VideoSamplingMode>("fps");
   const videoStartTime = ref(0);
   const videoEndTime = ref(0);
   const videoExtracting = ref(false);
@@ -100,6 +116,21 @@ export function useStickerMaker() {
   }));
   const hasSource = computed(() => Boolean(staticSource.value));
   const hasFrames = computed(() => frames.value.length > 0);
+  const videoSamplingPlan = computed<VideoSamplingPlan>(() => {
+    const currentSpec = spec.value;
+    const minFrames = currentSpec.minFrames ?? 2;
+    const toolMaxFrames = Math.max(minFrames, currentSpec.toolMaxFrames ?? currentSpec.maxFrames ?? 90);
+    const recommendedMaxFrames = Math.max(minFrames, currentSpec.recommendedMaxFrames ?? Math.min(48, toolMaxFrames));
+    const duration = selectedVideoDuration(lastVideoMeta.value, videoStartTime.value, videoEndTime.value);
+    const requestedFrameCount = videoSamplingMode.value === "fps" && duration
+      ? Math.max(minFrames, Math.ceil(duration * clampNumber(videoTargetFps.value, 1, 30)))
+      : Math.max(minFrames, Math.floor(Number.isFinite(videoFrameCount.value) ? videoFrameCount.value : recommendedMaxFrames));
+    const compliantFrameCount = clampInt(requestedFrameCount, minFrames, toolMaxFrames);
+    const effectiveFps = duration ? compliantFrameCount / duration : null;
+    const wasClamped = requestedFrameCount > compliantFrameCount;
+    const tip = buildVideoSamplingTip(duration, requestedFrameCount, compliantFrameCount, effectiveFps, wasClamped, toolMaxFrames, recommendedMaxFrames);
+    return { selectedDuration: duration, requestedFrameCount, compliantFrameCount, effectiveFps, wasClamped, minFrames, toolMaxFrames, recommendedMaxFrames, tip };
+  });
 
   watch([cropMode, background, paddingRatio, quality, textOverlay], () => {
     revokeExport(staticExport.value);
@@ -339,15 +370,14 @@ export function useStickerMaker() {
     videoExtracting.value = true;
     try {
       lastVideoMeta.value = await getVideoMetadata(file);
-      const currentSpec = spec.value;
-      const minFrames = currentSpec.minFrames ?? 2;
-      const maxFrames = Math.max(minFrames, currentSpec.maxFrames ?? videoFrameCount.value);
-      const requestedFrameCount = Number.isFinite(videoFrameCount.value) ? videoFrameCount.value : minFrames;
-      const frameCount = Math.max(minFrames, Math.min(Math.floor(requestedFrameCount), maxFrames));
+      const autoEndTime = videoEndTime.value > videoStartTime.value
+        ? videoEndTime.value
+        : Math.min(lastVideoMeta.value.duration, videoStartTime.value + 2.5);
+      const plan = videoSamplingPlan.value;
       const extracted = await extractVideoFrames(file, {
-        frameCount,
+        frameCount: plan.compliantFrameCount,
         startTime: videoStartTime.value,
-        endTime: videoEndTime.value > videoStartTime.value ? videoEndTime.value : undefined,
+        endTime: autoEndTime,
       });
       const nextFrames: StickerFrame[] = extracted.map((frame) => ({
         id: crypto.randomUUID(),
@@ -362,7 +392,13 @@ export function useStickerMaker() {
       sourceMode.value = "video";
       frames.value = nextFrames;
       revokeGifExport();
-      ElMessage.success(`已从视频提取 ${nextFrames.length} 帧，可继续调整顺序、延迟并合成 GIF。`);
+      if (plan.wasClamped) {
+        ElMessage.warning(`当前设置约需 ${plan.requestedFrameCount} 帧，已按工具上限 ${plan.toolMaxFrames} 帧抽取以避免浏览器卡顿和体积过大。`);
+      } else if (plan.effectiveFps !== null && plan.effectiveFps < 8) {
+        ElMessage.warning(`已从视频提取 ${nextFrames.length} 帧；当前有效约 ${plan.effectiveFps.toFixed(1)}fps，动作可能不连贯，建议缩短截取范围。`);
+      } else {
+        ElMessage.success(`已自动提取 ${nextFrames.length} 帧，约 ${plan.effectiveFps?.toFixed(1) ?? "-"}fps，可直接合成 GIF 或展开高级设置微调。`);
+      }
     } catch (error) {
       ElMessage.error(error instanceof Error ? error.message : "视频抽帧失败。 ");
     } finally {
@@ -424,6 +460,26 @@ export function useStickerMaker() {
     return slugifyFileBase(firstFrame, "animated-sticker", 16);
   }
 
+  function applyVideoPreset(preset: VideoPreset) {
+    if (preset === "smooth") {
+      videoSamplingMode.value = "fps";
+      videoTargetFps.value = 15;
+      videoFrameCount.value = 36;
+      setAllDelay(67);
+      return;
+    }
+    if (preset === "normal") {
+      videoSamplingMode.value = "fps";
+      videoTargetFps.value = 12;
+      videoFrameCount.value = 30;
+      setAllDelay(83);
+      return;
+    }
+    videoSamplingMode.value = "frame-count";
+    videoFrameCount.value = 18;
+    setAllDelay(120);
+  }
+
   return {
     mode,
     specKind,
@@ -435,6 +491,9 @@ export function useStickerMaker() {
     textOverlay,
     defaultDelayMs,
     videoFrameCount,
+    videoTargetFps,
+    videoSamplingMode,
+    videoSamplingPlan,
     videoStartTime,
     videoEndTime,
     videoExtracting,
@@ -456,6 +515,7 @@ export function useStickerMaker() {
     hasSource,
     hasFrames,
     gifExportBaseName,
+    applyVideoPreset,
     setMode,
     addFiles,
     addGeneratedImage,
@@ -490,4 +550,42 @@ function slugifyFileBase(fileName: string | undefined, fallback: string, maxLen 
     .replace(/^-|-$/g, "");
   const result = cleaned || fallback;
   return result.length > maxLen ? result.slice(0, maxLen) : result;
+}
+
+function selectedVideoDuration(meta: StickerVideoMetadata | null, startValue: number, endValue: number) {
+  if (!meta?.duration) return null;
+  const start = clampNumber(startValue, 0, meta.duration);
+  const end = endValue > start ? clampNumber(endValue, start, meta.duration) : Math.min(meta.duration, start + 2.5);
+  return Math.max(0.01, end - start);
+}
+
+function buildVideoSamplingTip(
+  duration: number | null,
+  requestedFrameCount: number,
+  compliantFrameCount: number,
+  effectiveFps: number | null,
+  wasClamped: boolean,
+  toolMaxFrames: number,
+  recommendedMaxFrames: number,
+) {
+  if (!duration) return `默认会自动截取约 2.5 秒关键片段并按 12fps 抽帧；普通动态 GIF 主要校验 240×240 和 500KB。`;
+  if (wasClamped) {
+    return `当前设置约需 ${requestedFrameCount} 帧，工具会按 ${toolMaxFrames} 帧抽取以保护浏览器性能；如需更流畅，建议缩短片段。`;
+  }
+  if (compliantFrameCount > recommendedMaxFrames) {
+    return `预计抽取 ${compliantFrameCount} 帧，动作更完整但更难压到 500KB；导出时会自动降色并在必要时抽样。`;
+  }
+  if (effectiveFps !== null && effectiveFps < 8) {
+    return `当前有效约 ${effectiveFps.toFixed(1)}fps，动作可能偏跳；缩短截取范围会更流畅。`;
+  }
+  return `当前片段约 ${duration.toFixed(1)} 秒，预计抽取 ${compliantFrameCount} 帧，约 ${effectiveFps?.toFixed(1) ?? "-"}fps。`;
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+function clampInt(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, Math.round(value)));
 }
